@@ -40,9 +40,9 @@ class WTAConvAutoencoder(nn.Module):
         self.name = "WTAConvAutoencoder"
         # Encoder
         self.encoder = nn.Sequential(
-            nn.Conv2d(1, 128, kernel_size=5, padding=2),
+            nn.Conv2d(1, 128, kernel_size=3, padding=1),
             nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2),  # Max-pooling operation
+            # nn.MaxPool2d(kernel_size=2, stride=2),  # Max-pooling operation
             nn.Conv2d(128, 128, kernel_size=5, padding=2),
             nn.ReLU(),
         )

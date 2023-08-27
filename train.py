@@ -1,12 +1,14 @@
 import torch
 from torch import nn
 from torch.nn import functional as F
-import datetime
+from datetime import datetime
 from models import convautoencoders
 from typing import Tuple
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
-
+from torchvision import datasets, transforms
+import random
+from torch.utils.data.sampler import SubsetRandomSampler
 
 def train_for_n_epochs(
     N_EPOCHS: int,
@@ -49,7 +51,7 @@ def train_for_n_epochs(
     print(f"Training {model.name} for {N_EPOCHS} epochs...")
     for epoch in tqdm(range(0, N_EPOCHS)):
         train_loss = 0.0
-        for i, (images, _) in enumerate(train_loader):
+        for i, (images, _) in enumerate(train_dataloader):
             optimizer.zero_grad()
             images = images.to(device)
             out = model(images)
@@ -62,7 +64,7 @@ def train_for_n_epochs(
 
         if epoch % VISUALIZE_EVERY == 0:
             with torch.no_grad():
-                val_mages, _ = next(iter(validation_dataloader))
+                val_images, _ = next(iter(validation_dataloader))
                 val_images = val_images.to(device)
 
                 # Forward pass
@@ -73,7 +75,7 @@ def train_for_n_epochs(
                 writer.add_images("Reconstructed Images", output, global_step=epoch)
 
         # print avg training statistics
-        train_loss = train_loss / len(train_loader)
+        train_loss = train_loss / len(train_dataloader)
         writer.add_scalar(f"avg_train_loss", train_loss, epoch)
 
 
