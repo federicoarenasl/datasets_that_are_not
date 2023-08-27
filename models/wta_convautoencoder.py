@@ -6,7 +6,7 @@ from torch.nn.modules import Sequential
 class WTAConvAutoencoder(nn.Module):
     def __init__(self):
         super(WTAConvAutoencoder, self).__init__()
-
+        self.name = "WTAConvAutoencoder"
         # Encoder
         self.encoder = nn.Sequential(
             nn.Conv2d(1, 128, kernel_size=5, padding=2),
@@ -15,7 +15,6 @@ class WTAConvAutoencoder(nn.Module):
             nn.Conv2d(128, 128, kernel_size=5, padding=2),
             nn.ReLU()
         )
-        
         # Decoder
         self.decoder = nn.Sequential(
             nn.ConvTranspose2d(128, 1, kernel_size=11, padding=5),
@@ -23,6 +22,10 @@ class WTAConvAutoencoder(nn.Module):
         )
 
     def forward(self, x):
+        """
+        Forward pass through the network using winner-takes-all sparsity, which
+        works by zeroing out all but the largest activation within a feature map.
+        """
         # Winner-Takes-All mechanism in the encoder
         encoded = self.encoder(x)
         winner_indices = torch.argmax(encoded, dim=1, keepdim=True)
@@ -36,7 +39,7 @@ class WTAConvAutoencoder(nn.Module):
 class WTALifetimeSparseConvAutoencoder(nn.Module):
     def __init__(self, k_percentage:float=0.1):
         super(WTALifetimeSparseConvAutoencoder, self).__init__()
-
+        self.name = "WTALifetimeSparseConvAutoencoder"
         # Encoder
         self.encoder = nn.Sequential(
             nn.Conv2d(1, 128, kernel_size=5, padding=2),
@@ -45,7 +48,6 @@ class WTALifetimeSparseConvAutoencoder(nn.Module):
             nn.Conv2d(128, 128, kernel_size=5, padding=2),
             nn.ReLU()
         )
-        
         # Decoder
         self.decoder = nn.Sequential(
             nn.ConvTranspose2d(128, 1, kernel_size=11, padding=5),
@@ -55,6 +57,10 @@ class WTALifetimeSparseConvAutoencoder(nn.Module):
         self.k_percent = k_percentage  # Choose your desired k percent
 
     def forward(self, x):
+        """
+        Forward pass through the network using winner-takes-all lifetime sparsity,
+        which works by zeroing out all but the top k% activations within a feature.
+        """
         encoded = self.encoder(x)
         
         # Calculate the number of top activations to keep
