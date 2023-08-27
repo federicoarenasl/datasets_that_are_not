@@ -3,6 +3,7 @@ from torch import nn
 from torch.nn import functional as F
 from torch.nn.modules import Sequential
 
+
 class ConvAutoencoder(nn.Module):
     def __init__(self):
         """Convolutional autoencoder"""
@@ -14,7 +15,7 @@ class ConvAutoencoder(nn.Module):
             nn.ReLU(),
             nn.Conv2d(16, 32, 3, stride=2, padding=1),
             nn.ReLU(),
-            nn.Conv2d(32, 64, 7)
+            nn.Conv2d(32, 64, 7),
         )
         # Decoder
         self.decoder = Sequential(
@@ -23,7 +24,7 @@ class ConvAutoencoder(nn.Module):
             nn.ConvTranspose2d(32, 16, 3, stride=2, padding=1, output_padding=1),
             nn.ReLU(),
             nn.ConvTranspose2d(16, 1, 3, stride=2, padding=1, output_padding=1),
-            nn.Sigmoid()
+            nn.Sigmoid(),
         )
 
     def forward(self, x):
