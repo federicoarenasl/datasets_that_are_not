@@ -34,15 +34,14 @@ class ConvAutoencoder(nn.Module):
         return x
 
 
-class WTAConvAutoencoder(nn.Module):
+class WTASpatialConvAutoencoder(nn.Module):
     def __init__(self):
-        super(WTAConvAutoencoder, self).__init__()
-        self.name = "WTAConvAutoencoder"
+        super(WTASpatialConvAutoencoder, self).__init__()
+        self.name = "WTASpatialConvAutoencoder"
         # Encoder
         self.encoder = nn.Sequential(
-            nn.Conv2d(1, 128, kernel_size=3, padding=1),
+            nn.Conv2d(1, 128, kernel_size=5, padding=2),
             nn.ReLU(),
-            # nn.MaxPool2d(kernel_size=2, stride=2),  # Max-pooling operation
             nn.Conv2d(128, 128, kernel_size=5, padding=2),
             nn.ReLU(),
         )
@@ -56,7 +55,7 @@ class WTAConvAutoencoder(nn.Module):
         Forward pass through the network using winner-takes-all sparsity, which
         works by zeroing out all but the largest activation within a feature map.
         """
-        # Winner-Takes-All mechanism in the encoder
+        # Spatial only Winner-Takes-All mechanism in the encoder
         encoded = self.encoder(x)
         winner_indices = torch.argmax(encoded, dim=1, keepdim=True)
         encoded_wta = torch.zeros_like(encoded)
@@ -74,7 +73,6 @@ class WTALifetimeSparseConvAutoencoder(nn.Module):
         self.encoder = nn.Sequential(
             nn.Conv2d(1, 128, kernel_size=5, padding=2),
             nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2),  # Max-pooling operation
             nn.Conv2d(128, 128, kernel_size=5, padding=2),
             nn.ReLU(),
         )
@@ -103,6 +101,52 @@ class WTALifetimeSparseConvAutoencoder(nn.Module):
         threshold = top_activations[:, -1].unsqueeze(1).unsqueeze(2).unsqueeze(3)
         encoded_wta = torch.where(
             encoded >= threshold, encoded, torch.zeros_like(encoded)
+        )
+
+        decoded = self.decoder(encoded_wta)
+        return decoded
+
+class WTASpatialLifetimeSparseConvAutoencoder(nn.Module):
+    def __init__(self, k_percentage: float = 0.1):
+        super(WTASpatialLifetimeSparseConvAutoencoder, self).__init__()
+        self.name = "WTASpatialLifetimeSparseConvAutoencoder"
+        # Encoder
+        self.encoder = nn.Sequential(
+            nn.Conv2d(1, 128, kernel_size=5, padding=2),
+            nn.ReLU(),
+            nn.Conv2d(128, 128, kernel_size=5, padding=2),
+            nn.ReLU(),
+        )
+        # Decoder
+        self.decoder = nn.Sequential(
+            nn.ConvTranspose2d(128, 1, kernel_size=11, padding=5), nn.Sigmoid()
+        )
+
+        self.k_percent = k_percentage  # Choose your desired k percent
+
+    def forward(self, x):
+        """
+        Forward pass through the network using winner-takes-all spatial sparsity
+        to select top activation within each feature map, then use lifetime 
+        sparsity, which selects top k% activations across the entire batch.
+        """
+        # Spatial only Winner-Takes-All mechanism in the encoder
+        encoded = self.encoder(x)
+        # Find top 1 activation within each feature map
+        winner_indices = torch.argmax(encoded, dim=1, keepdim=True)
+        # Zero out all but the top activation within each feature map
+        encoded_wta = torch.zeros_like(encoded)
+        encoded_wta.scatter_(1, winner_indices, encoded.gather(1, winner_indices))
+        # Calculate the number of top activations to keep
+        num_activations = encoded.size(0) * self.k_percent
+        num_activations = int(num_activations)
+        # Apply lifetime sparsity to each filter across the entire batch
+        top_activations, _ = torch.topk(
+            encoded_wta.view(encoded_wta.size(0), -1), num_activations, dim=1
+        )
+        threshold = top_activations[:, -1].unsqueeze(1).unsqueeze(2).unsqueeze(3)
+        encoded_wta = torch.where(
+            encoded_wta >= threshold, encoded_wta, torch.zeros_like(encoded_wta)
         )
 
         decoded = self.decoder(encoded_wta)

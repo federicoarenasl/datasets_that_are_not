@@ -10,6 +10,7 @@ from torchvision import datasets, transforms
 import random
 from torch.utils.data.sampler import SubsetRandomSampler
 
+
 def train_for_n_epochs(
     N_EPOCHS: int,
     VISUALIZE_EVERY: int,
@@ -19,6 +20,9 @@ def train_for_n_epochs(
     optimizer: torch.optim.Optimizer,
     criterion: nn.Module,
     device: torch.device,
+    writer: SummaryWriter = SummaryWriter(
+        f"runs/{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+    ),
 ):
     """
     Train the model for N_EPOCHS epochs, visualizing the results every
@@ -41,11 +45,9 @@ def train_for_n_epochs(
         Loss function
     device : torch.device
         Device to use for training
+    writer : SummaryWriter
+        TensorBoard writer
     """
-    # Set TensorBoard writer
-    writer = SummaryWriter(
-        f"logs/{model.name}_{datetime.now().strftime('%Y%m%d-%H%M%S')}"
-    )
     i = 0
     # Train the model
     print(f"Training {model.name} for {N_EPOCHS} epochs...")
@@ -128,17 +130,15 @@ def load_mnist(
 
     return train_dataloader, validation_dataloader
 
+
 if __name__ == "__main__":
     import argparse
+
     # Parse arguments
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--model", type=str, default="ConvAutoencoder", help="Model to train"
     )
-    if args.model not in ["ConvAutoencoder", "WTAConvAutoencoder"]:
-        raise ValueError("Model not supported")
-    if args.model == "WTALifetimeSparseConvAutoencoder":
-        parser.add_argument("--k_percent", type=float, default=0.1, help="k percent")
     parser.add_argument("--epochs", type=int, default=10, help="Number of epochs")
     parser.add_argument("--lr", type=float, default=1e-3, help="Learning rate")
     parser.add_argument("--batch_size", type=int, default=128, help="Batch size")
@@ -148,8 +148,18 @@ if __name__ == "__main__":
     parser.add_argument("--device", type=str, default="cuda", help="Device to use")
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
     args = parser.parse_args()
+    if args.model not in [
+        "ConvAutoencoder",
+        "WTAConvAutoencoder",
+        "WTALifetimeSparseConvAutoencoder",
+    ]:
+        raise ValueError("Model not supported")
     # Get model from models.py based on --model argument
     model = getattr(convautoencoders, args.model)()
+    if args.model == "WTALifetimeSparseConvAutoencoder":
+        parser.add_argument("--k_percent", type=float, default=0.1, help="k percent")
+        args = parser.parse_args()
+        model.k_percentage = args.k_percent
     # Set random seed for reproducibility
     torch.manual_seed(args.seed)
     # Set device
@@ -160,7 +170,7 @@ if __name__ == "__main__":
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     criterion = nn.MSELoss()
     # Train the model
-    train(
+    train_for_n_epochs(
         N_EPOCHS=args.epochs,
         VISUALIZE_EVERY=args.visualize_every,
         model=model,
