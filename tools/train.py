@@ -9,7 +9,7 @@ from tqdm import tqdm
 from torchvision import datasets, transforms
 import random
 from torch.utils.data.sampler import SubsetRandomSampler
-
+from tools.dataset import split_dataset
 
 def train_for_n_epochs(
     N_EPOCHS: int,
@@ -49,7 +49,6 @@ def train_for_n_epochs(
         TensorBoard writer
     """
     i = 0
-    # Train the model
     print(f"Training {model.name} for {N_EPOCHS} epochs...")
     for epoch in tqdm(range(0, N_EPOCHS)):
         train_loss = 0.0
@@ -64,71 +63,25 @@ def train_for_n_epochs(
             writer.add_scalar(f"train_loss", loss.item(), i)
             i += images.size(0)
 
+        val_loss = 0.0
         if epoch % VISUALIZE_EVERY == 0:
             with torch.no_grad():
                 val_images, _ = next(iter(validation_dataloader))
                 val_images = val_images.to(device)
-
                 # Forward pass
                 output = model(val_images)
-
+                # Calculate reconstruction loss
+                loss = criterion(output, val_images)
+                val_loss += loss.item()
                 # Log images to TensorBoard
                 writer.add_images("Input Images", val_images, global_step=epoch)
                 writer.add_images("Reconstructed Images", output, global_step=epoch)
 
         # print avg training statistics
         train_loss = train_loss / len(train_dataloader)
+        val_loss = val_loss / len(validation_dataloader)
         writer.add_scalar(f"avg_train_loss", train_loss, epoch)
-
-
-def load_mnist(
-    batch_size: int,
-    validation_split: float = 0.2,
-    random_seed: int = 42,
-) -> Tuple[torch.utils.data.DataLoader, torch.utils.data.DataLoader]:
-    """
-    Load MNIST dataset
-
-    Parameters
-    ----------
-    batch_size : int
-        Batch size to use for training
-    """
-    # Load MNIST dataset based on validatio split
-    # convert data to torch.FloatTensor
-    transform = transforms.ToTensor()
-
-    # load the training and test datasets
-    mnist_dataset = datasets.MNIST(
-        root="~/.pytorch/MNIST_data/", train=True, download=True, transform=transform
-    )
-
-    # Define the split ratio for validation data
-    validation_split = 0.2
-    num_train = len(mnist_dataset)
-    indices = list(range(num_train))
-    split = int(validation_split * num_train)
-
-    # Shuffle the indices
-    random.seed(random_seed)  # For reproducibility
-    random.shuffle(indices)
-
-    # Split the indices into training and validation sets
-    train_indices, val_indices = indices[split:], indices[:split]
-
-    # Define samplers for obtaining training and validation batches
-    train_sampler = SubsetRandomSampler(train_indices)
-    val_sampler = SubsetRandomSampler(val_indices)
-
-    # Prepare data loaders (combine dataset and sampler)
-    train_dataloader = torch.utils.data.DataLoader(
-        mnist_dataset, batch_size=batch_size, sampler=train_sampler
-    )
-    validation_dataloader = torch.utils.data.DataLoader(
-        mnist_dataset, batch_size=batch_size, sampler=val_sampler
-    )
-
-    return train_dataloader, validation_dataloader
+        writer.add_scalar(f"avg_val_loss", train_loss, epoch)
 
 
 if __name__ == "__main__":
@@ -155,6 +108,7 @@ if __name__ == "__main__":
     ]:
         raise ValueError("Model not supported")
     # Get model from models.py based on --model argument
+    device = torch.device(args.device)
     model = getattr(convautoencoders, args.model)()
     if args.model == "WTALifetimeSparseConvAutoencoder":
         parser.add_argument("--k_percent", type=float, default=0.1, help="k percent")
@@ -162,10 +116,13 @@ if __name__ == "__main__":
         model.k_percentage = args.k_percent
     # Set random seed for reproducibility
     torch.manual_seed(args.seed)
-    # Set device
-    device = torch.device(args.device)
-    # Load MNIST dataset
-    train_loader, validation_loader = load_mnist(args.batch_size, random_seed=args.seed)
+    # Load dataset and split into training and validation sets
+    dataset = datasets.MNIST(
+        root="data", train=True, transform=transforms.ToTensor(), download=True
+    )
+    train_loader, validation_loader = split_dataset(
+        dataset, batch_size=args.batch_size, validation_split=0.2, random_seed=args.seed
+    )
     # Set optimizer and loss function
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     criterion = nn.MSELoss()
