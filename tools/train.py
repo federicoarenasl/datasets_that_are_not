@@ -21,9 +21,9 @@ def train_for_n_epochs(
     criterion: nn.Module,
     device: torch.device,
     writer: SummaryWriter = SummaryWriter(
-        f"runs/{datetime.now().strftime('%Y%m%d-%H%M%S')}"
-    ),
-):
+        f"runs/{datetime.now().strftime('%Y%m%d-%H%M%S')}"),
+    checkpoint_dir: str = "models/",
+    ):
     """
     Train the model for N_EPOCHS epochs, visualizing the results every
 
@@ -47,6 +47,8 @@ def train_for_n_epochs(
         Device to use for training
     writer : SummaryWriter
         TensorBoard writer
+    checkpoint_dir : str
+        Directory to save checkpoints to
     """
     i = 0
     print(f"Training {model.name} for {N_EPOCHS} epochs...")
@@ -82,6 +84,14 @@ def train_for_n_epochs(
         val_loss = val_loss / len(validation_dataloader)
         writer.add_scalar(f"avg_train_loss", train_loss, epoch)
         writer.add_scalar(f"avg_val_loss", train_loss, epoch)
+
+        # Save checkpoints to checkpoint_path
+        checkpoint_path = \
+            f"{model.name}_{datetime.now().strftime('%Y%m%d-%H%M%S')}"+\
+            f"/epoch_{epoch}.pth"
+        torch.save(\
+            model.state_dict(), 
+            checkpoint_path=f"{checkpoint_dir}/{checkpoint_path}")
 
 
 if __name__ == "__main__":
