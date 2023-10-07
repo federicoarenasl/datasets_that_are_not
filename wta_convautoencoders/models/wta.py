@@ -30,9 +30,9 @@ def wta_lifetime_sparsity(encoded_x, k_percent: float = 0.1):
     return encoded_wta
 
 
-class WTASpatialConvAutoencoder(ConvAutoencoder128):
+class WTASpatial(ConvAutoencoder128):
     def __init__(self):
-        super(WTASpatialConvAutoencoder, self).__init__()
+        super(WTASpatial, self).__init__()
         self.name = "WTASpatialConvAutoencoder"
 
     def forward(self, x):
@@ -46,9 +46,9 @@ class WTASpatialConvAutoencoder(ConvAutoencoder128):
         decoded = self.decoder(spatial_encoded)
         return decoded
 
-class WTALifetimeSparse(ConvAutoencoder128):
+class WTALifetime(ConvAutoencoder128):
     def __init__(self, k_percentage: float = 0.1):
-        super(WTALifetimeSparse, self).__init__()
+        super(WTALifetime, self).__init__()
         self.name = "WTALifetimeSparseConvAutoencoder"
         self.k_percent = k_percentage
 
