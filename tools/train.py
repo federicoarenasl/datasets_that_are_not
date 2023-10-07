@@ -2,7 +2,7 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 from datetime import datetime
-from models import convautoencoders
+from models import wta
 from typing import Tuple
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
@@ -10,6 +10,8 @@ from torchvision import datasets, transforms
 import random
 from torch.utils.data.sampler import SubsetRandomSampler
 from tools.dataset import split_dataset
+import os
+
 
 def train_for_n_epochs(
     N_EPOCHS: int,
@@ -51,6 +53,11 @@ def train_for_n_epochs(
         Directory to save checkpoints to
     """
     i = 0
+    weights_dir = \
+        f"{checkpoint_dir}/{model.name}_{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+    if not os.path.exists(weights_dir):
+        os.makedirs(weights_dir)
+
     print(f"Training {model.name} for {N_EPOCHS} epochs...")
     for epoch in tqdm(range(0, N_EPOCHS)):
         train_loss = 0.0
@@ -62,7 +69,7 @@ def train_for_n_epochs(
             loss.backward()
             optimizer.step()
             train_loss += loss.item() * images.size(0)
-            writer.add_scalar(f"train_loss", loss.item(), i)
+            writer.add_scalar(f"loss/train_loss", loss.item(), i)
             i += images.size(0)
 
         val_loss = 0.0
@@ -82,16 +89,15 @@ def train_for_n_epochs(
         # print avg training statistics
         train_loss = train_loss / len(train_dataloader)
         val_loss = val_loss / len(validation_dataloader)
-        writer.add_scalar(f"avg_train_loss", train_loss, epoch)
-        writer.add_scalar(f"avg_val_loss", train_loss, epoch)
+        writer.add_scalar(f"loss/avg_train_loss", train_loss, epoch)
+        writer.add_scalar(f"loss/avg_val_loss", train_loss, epoch)
 
         # Save checkpoints to checkpoint_path
         checkpoint_path = \
-            f"{model.name}_{datetime.now().strftime('%Y%m%d-%H%M%S')}"+\
-            f"/epoch_{epoch}.pth"
+            f"{weights_dir}/epoch_{epoch}.pth"
         torch.save(\
             model.state_dict(), 
-            checkpoint_path=f"{checkpoint_dir}/{checkpoint_path}")
+            checkpoint_path)
 
 
 if __name__ == "__main__":
@@ -119,7 +125,7 @@ if __name__ == "__main__":
         raise ValueError("Model not supported")
     # Get model from models.py based on --model argument
     device = torch.device(args.device)
-    model = getattr(convautoencoders, args.model)()
+    model = getattr(wta, args.model)()
     if args.model == "WTALifetimeSparseConvAutoencoder":
         parser.add_argument("--k_percent", type=float, default=0.1, help="k percent")
         args = parser.parse_args()

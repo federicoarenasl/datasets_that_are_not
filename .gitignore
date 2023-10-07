@@ -161,3 +161,7 @@ cython_debug/
 
 # Tensorboard
 logs/
+runs/
+
+# Torch
+checkpoints/
